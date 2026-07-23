@@ -17,8 +17,8 @@
     --surface:#1b212b;
     --surface-2:#232a35;
     --line:#2c3542;
-    --court:#e8a33d;
-    --court-dim:#3a2f1c;
+    --court:#378ADD;
+    --court-dim:#16283c;
     --bench:#4a5568;
     --bench-dim:#232a35;
     --text:#f2efe8;
@@ -53,7 +53,7 @@
   .clock.warn{color:var(--danger);}
   .controls{display:flex;gap:10px;margin-top:1rem;justify-content:center;}
   button.ctrl{font-family:'Inter',sans-serif;font-weight:600;font-size:15px;border-radius:10px;border:1px solid var(--line);padding:0.7rem 1.4rem;cursor:pointer;background:var(--surface-2);color:var(--text);}
-  button.ctrl.primary{background:var(--court);border-color:var(--court);color:#2b1c05;}
+  button.ctrl.primary{background:var(--court);border-color:var(--court);color:#042c53;}
   button.ctrl:active{transform:scale(0.97);}
   .section-label{font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.12em;margin:1.2rem 0 0.5rem;display:flex;align-items:center;gap:8px;}
   .swatch{width:9px;height:9px;border-radius:3px;}
@@ -66,7 +66,7 @@
   .pcard.nextup{outline:2px solid var(--next);outline-offset:-2px;}
   .pname{font-weight:600;font-size:15px;margin-bottom:2px;}
   .ptime{font-family:'Oswald',sans-serif;font-size:22px;font-variant-numeric:tabular-nums;color:var(--text-dim);}
-  .pcard.court .ptime{color:#f5cf94;}
+  .pcard.court .ptime{color:#a9d0f5;}
   .badge{position:absolute;top:8px;right:8px;font-size:10px;font-weight:600;background:var(--next);color:#08281a;padding:2px 6px;border-radius:6px;text-transform:uppercase;}
   .hint{font-size:13px;color:var(--text-dim);margin-top:1rem;line-height:1.5;text-align:center;}
   .summary{margin-top:1.2rem;}
@@ -83,7 +83,7 @@
     width:24px;height:24px;border-radius:7px;border:2px solid var(--line);background:var(--surface-2);
     display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;font-size:15px;color:transparent;
   }
-  .chk.checked{background:var(--court);border-color:var(--court);color:#2b1c05;}
+  .chk.checked{background:var(--court);border-color:var(--court);color:#042c53;}
   .setup input.nameedit{
     flex:1;background:transparent;border:none;color:var(--text);font-size:16px;font-family:'Inter',sans-serif;font-weight:500;
     padding:6px 4px;border-radius:6px;
@@ -91,7 +91,7 @@
   .setup input.nameedit:focus{outline:none;background:var(--surface-2);}
   .rosterrow.off .nameedit{color:var(--text-dim);}
   .countline{font-size:13px;color:var(--text-dim);margin:0.8rem 0 0.2rem;}
-  .startbtn{width:100%;margin-top:1rem;background:var(--court);color:#2b1c05;border:none;border-radius:10px;padding:0.9rem;font-family:'Inter',sans-serif;font-weight:600;font-size:16px;cursor:pointer;}
+  .startbtn{width:100%;margin-top:1rem;background:var(--court);color:#042c53;border:none;border-radius:10px;padding:0.9rem;font-family:'Inter',sans-serif;font-weight:600;font-size:16px;cursor:pointer;}
   .startbtn:disabled{background:var(--off);color:var(--text-dim);cursor:not-allowed;}
   .overlay{position:absolute;inset:0;background:rgba(18,22,29,0.92);display:flex;align-items:center;justify-content:center;border-radius:16px;flex-direction:column;gap:0.5rem;}
   .oversub{font-size:13px;color:var(--text-dim);}
