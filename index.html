@@ -54,6 +54,7 @@
   .controls{display:flex;gap:10px;margin-top:1rem;justify-content:center;}
   button.ctrl{font-family:'Inter',sans-serif;font-weight:600;font-size:15px;border-radius:10px;border:1px solid var(--line);padding:0.7rem 1.4rem;cursor:pointer;background:var(--surface-2);color:var(--text);}
   button.ctrl.primary{background:var(--court);border-color:var(--court);color:#042c53;}
+  button.ctrl.primary:disabled{background:var(--off);border-color:var(--off);color:var(--text-dim);cursor:not-allowed;}
   button.ctrl:active{transform:scale(0.97);}
   .section-label{font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.12em;margin:1.2rem 0 0.5rem;display:flex;align-items:center;gap:8px;}
   .swatch{width:9px;height:9px;border-radius:3px;}
@@ -66,7 +67,7 @@
   .pcard.nextup{outline:2px solid var(--next);outline-offset:-2px;}
   .pcard.faircard{outline:2px solid var(--bench);outline-offset:-2px;}
   .badge.fair{background:var(--off);color:var(--text-dim);}
-  .pname{font-weight:600;font-size:15px;margin-bottom:2px;}
+  .pname{font-weight:600;font-size:15px;margin-bottom:2px;padding-right:60px;}
   .ptime{font-family:'Oswald',sans-serif;font-size:22px;font-variant-numeric:tabular-nums;color:var(--text-dim);}
   .pcard.court .ptime{color:#a9d0f5;}
   .badge{position:absolute;top:8px;right:8px;font-size:10px;font-weight:600;background:var(--next);color:#08281a;padding:2px 6px;border-radius:6px;text-transform:uppercase;}
@@ -101,7 +102,9 @@
   .allplaying{text-align:center;color:var(--text-dim);font-size:14px;padding:1rem 0;}
   .nextsub{font-size:13px;color:var(--text-dim);margin-top:6px;}
   .pcard.due{outline:2px solid var(--danger);outline-offset:-2px;}
-  .duebadge{position:absolute;top:8px;left:8px;font-size:10px;font-weight:600;background:var(--danger);color:#2a0d08;padding:2px 6px;border-radius:6px;text-transform:uppercase;}
+  .pcard.duesoon{outline:2px dashed var(--danger);outline-offset:-2px;}
+  .duebadge{position:absolute;top:8px;right:8px;font-size:10px;font-weight:600;background:var(--danger);color:#2a0d08;padding:2px 6px;border-radius:6px;text-transform:uppercase;}
+  .duebadge.soon{background:transparent;border:1px solid var(--danger);color:var(--danger);}
   @keyframes pulseglow{
     0%,100%{box-shadow:0 0 0 0 rgba(216,90,74,0.6);}
     50%{box-shadow:0 0 0 10px rgba(216,90,74,0);}
@@ -156,6 +159,8 @@
 
     <div class="hint" id="hintText">Tap a bench player, then tap a court player to sub them in. Green outline shows who's had the least time.</div>
 
+    <button class="ctrl primary" id="quickSubBtn" onclick="quickSub()" style="width:100%;">No sub due yet</button>
+
     <div class="section-label">Playing time this game</div>
     <div class="summary" id="summaryList"></div>
   </div>
@@ -179,7 +184,6 @@ let timerHandle = null;
 let selected = null;
 let gameOver = false;
 let shiftSeconds = 0;
-let fairShareSeconds = 0;
 let lastShiftIndex = 0;
 let subDue = false;
 let dueSwapsRemaining = 0;
@@ -210,7 +214,9 @@ function computeShiftSeconds(n){
   return GAME_LEN / n;
 }
 
-function computeFairShare(n){
+function fairTargetNow(){
+  // Each player's target playing time for the whole game: 5/n of GAME_LEN.
+  const n = players.length;
   if(n===0) return 0;
   return GAME_LEN * Math.min(5,n) / n;
 }
@@ -266,7 +272,7 @@ function doVibrate(){
 
 function triggerSubAlert(){
   const bench = players.filter(p=>!p.onCourt);
-  const needing = bench.filter(p=>(fairShareSeconds-p.seconds) >= FAIRNESS_TOLERANCE_SEC);
+  const needing = bench.filter(p=>(fairTargetNow()-p.seconds) >= FAIRNESS_TOLERANCE_SEC);
   if(needing.length===0) return; // everyone on bench already has their fair share this shift
   subDue = true;
   dueSwapsRemaining = needing.length;
@@ -379,7 +385,6 @@ async function startFromSetup(){
   gameOver = false;
   selected = null;
   shiftSeconds = computeShiftSeconds(players.length);
-  fairShareSeconds = computeFairShare(players.length);
   lastShiftIndex = 0;
   subDue = false;
   startTimestamp = null;
@@ -400,7 +405,6 @@ function newGame(){
   players.forEach(p => { p.seconds = 0; p.onCourt = courtIds.has(p.id); });
   selected = null;
   shiftSeconds = computeShiftSeconds(players.length);
-  fairShareSeconds = computeFairShare(players.length);
   lastShiftIndex = 0;
   subDue = false;
   startTimestamp = null;
@@ -488,6 +492,31 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
+function quickSub(){
+  if(!subDue || dueSwapsRemaining<=0) return;
+  const onCourt = players.filter(p=>p.onCourt);
+  const bench = players.filter(p=>!p.onCourt);
+  if(bench.length===0) return;
+
+  const count = dueSwapsRemaining;
+  const needing = bench.filter(p=>(fairTargetNow()-p.seconds)>=FAIRNESS_TOLERANCE_SEC);
+  const pool = needing.length>=count ? needing : bench;
+
+  const offIds = [...onCourt].sort((a,b)=>b.seconds-a.seconds).slice(0,count).map(p=>p.id);
+  const onIds = [...pool].sort((a,b)=>a.seconds-b.seconds).slice(0,count).map(p=>p.id);
+
+  offIds.forEach((id,i) => {
+    const a = players.find(p=>p.id===id);
+    const b = players.find(p=>p.id===onIds[i]);
+    if(a && b){ a.onCourt = false; b.onCourt = true; }
+  });
+
+  dueSwapsRemaining = Math.max(0, dueSwapsRemaining-offIds.length);
+  if(dueSwapsRemaining<=0) subDue = false;
+  selected = null;
+  render();
+}
+
 function clickPlayer(id){
   if(players.length <= 5) return;
   if(selected===null){
@@ -530,8 +559,12 @@ function render(){
   const nextSubLine = document.getElementById('nextSubLine');
   if(shiftSeconds>0 && !gameOver){
     const nextBoundary = (lastShiftIndex+1)*shiftSeconds;
-    const untilNext = Math.max(0, nextBoundary-elapsed);
-    nextSubLine.textContent = subDue ? 'Sub due now' : ('Next sub in ' + fmt(untilNext));
+    if(nextBoundary >= GAME_LEN-0.5){
+      nextSubLine.textContent = subDue ? 'Sub due now' : 'No more subs this game';
+    } else {
+      const untilNext = Math.max(0, nextBoundary-elapsed);
+      nextSubLine.textContent = subDue ? 'Sub due now' : ('Next sub in ' + fmt(untilNext));
+    }
   } else {
     nextSubLine.textContent = '';
   }
@@ -549,18 +582,26 @@ function render(){
   const bench = players.filter(p=>!p.onCourt);
   const benchCount = bench.length;
   let dueIds = [];
+  let soonIds = [];
   if(subDue && dueSwapsRemaining>0){
     dueIds = [...onCourt].sort((a,b)=>b.seconds-a.seconds).slice(0,dueSwapsRemaining).map(p=>p.id);
+  } else if(benchCount>0 && !gameOver){
+    const needingNow = bench.filter(p=>(fairTargetNow()-p.seconds)>=FAIRNESS_TOLERANCE_SEC);
+    if(needingNow.length>0){
+      soonIds = [...onCourt].sort((a,b)=>b.seconds-a.seconds).slice(0,needingNow.length).map(p=>p.id);
+    }
   }
 
   const courtGrid = document.getElementById('courtGrid');
   courtGrid.innerHTML='';
   onCourt.forEach(p => {
     const isDue = dueIds.includes(p.id);
+    const isSoon = !isDue && soonIds.includes(p.id);
     const div = document.createElement('div');
-    div.className = 'pcard court' + (selected===p.id?' selected':'') + (isDue?' due':'');
+    div.className = 'pcard court' + (selected===p.id?' selected':'') + (isDue?' due':'') + (isSoon?' duesoon':'');
     div.onclick = () => clickPlayer(p.id);
-    div.innerHTML = (isDue?'<div class="duebadge">Due off</div>':'') + '<div class="pname">'+escapeHtml(p.name)+'</div><div class="ptime">'+fmt(p.seconds)+'</div>';
+    const badgeHtml = isDue ? '<div class="duebadge">Due off</div>' : (isSoon ? '<div class="duebadge soon">Off soon</div>' : '');
+    div.innerHTML = badgeHtml + '<div class="pname">'+escapeHtml(p.name)+'</div><div class="ptime">'+fmt(p.seconds)+'</div>';
     courtGrid.appendChild(div);
   });
 
@@ -575,7 +616,7 @@ function render(){
     const benchGrid = document.getElementById('benchGrid');
     benchGrid.innerHTML='';
     bench.forEach(p => {
-      const isFair = (fairShareSeconds-p.seconds) < FAIRNESS_TOLERANCE_SEC;
+      const isFair = (fairTargetNow()-p.seconds) < FAIRNESS_TOLERANCE_SEC;
       const div = document.createElement('div');
       div.className = 'pcard bench' + (selected===p.id?' selected':'') + (isFair?' faircard':' nextup');
       div.onclick = () => clickPlayer(p.id);
@@ -583,6 +624,18 @@ function render(){
       div.innerHTML = badgeHtml + '<div class="pname">'+escapeHtml(p.name)+'</div><div class="ptime">'+fmt(p.seconds)+'</div>';
       benchGrid.appendChild(div);
     });
+  }
+
+  const quickSubBtn = document.getElementById('quickSubBtn');
+  if(bench.length===0){
+    quickSubBtn.disabled = true;
+    quickSubBtn.textContent = 'No subs needed this week';
+  } else if(subDue){
+    quickSubBtn.disabled = false;
+    quickSubBtn.textContent = '⇄ Sub now (' + dueSwapsRemaining + ')';
+  } else {
+    quickSubBtn.disabled = true;
+    quickSubBtn.textContent = 'No sub due yet';
   }
 
   const sorted = [...players].sort((a,b)=>b.seconds-a.seconds);
