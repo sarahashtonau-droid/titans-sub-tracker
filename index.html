@@ -64,6 +64,8 @@
   .pcard.bench{background:var(--bench-dim);}
   .pcard.selected{border-color:var(--court);}
   .pcard.nextup{outline:2px solid var(--next);outline-offset:-2px;}
+  .pcard.faircard{outline:2px solid var(--bench);outline-offset:-2px;}
+  .badge.fair{background:var(--off);color:var(--text-dim);}
   .pname{font-weight:600;font-size:15px;margin-bottom:2px;}
   .ptime{font-family:'Oswald',sans-serif;font-size:22px;font-variant-numeric:tabular-nums;color:var(--text-dim);}
   .pcard.court .ptime{color:#a9d0f5;}
@@ -166,6 +168,7 @@ const GAME_LEN = HALF_LEN*2;
 const NAMES_KEY = 'titans-roster-names';
 const PLAYING_KEY = 'titans-weekly-playing';
 const DEFAULT_NAMES = ['Sammy','Leon','Sam','Ethan','Theo','Sunni','Minty'];
+const FAIRNESS_TOLERANCE_SEC = 60;
 
 let roster = [];
 let players = [];
@@ -176,6 +179,7 @@ let timerHandle = null;
 let selected = null;
 let gameOver = false;
 let shiftSeconds = 0;
+let fairShareSeconds = 0;
 let lastShiftIndex = 0;
 let subDue = false;
 let dueSwapsRemaining = 0;
@@ -204,6 +208,11 @@ function computeShiftSeconds(n){
   const bench = Math.max(0, n-5);
   if(bench===0 || n===0) return 0;
   return GAME_LEN / n;
+}
+
+function computeFairShare(n){
+  if(n===0) return 0;
+  return GAME_LEN * Math.min(5,n) / n;
 }
 
 function ensureAudio(){
@@ -256,8 +265,11 @@ function doVibrate(){
 }
 
 function triggerSubAlert(){
+  const bench = players.filter(p=>!p.onCourt);
+  const needing = bench.filter(p=>(fairShareSeconds-p.seconds) >= FAIRNESS_TOLERANCE_SEC);
+  if(needing.length===0) return; // everyone on bench already has their fair share this shift
   subDue = true;
-  dueSwapsRemaining = players.filter(p=>!p.onCourt).length;
+  dueSwapsRemaining = needing.length;
   playBuzzer();
   doVibrate();
   render();
@@ -367,6 +379,7 @@ async function startFromSetup(){
   gameOver = false;
   selected = null;
   shiftSeconds = computeShiftSeconds(players.length);
+  fairShareSeconds = computeFairShare(players.length);
   lastShiftIndex = 0;
   subDue = false;
   startTimestamp = null;
@@ -387,6 +400,7 @@ function newGame(){
   players.forEach(p => { p.seconds = 0; p.onCourt = courtIds.has(p.id); });
   selected = null;
   shiftSeconds = computeShiftSeconds(players.length);
+  fairShareSeconds = computeFairShare(players.length);
   lastShiftIndex = 0;
   subDue = false;
   startTimestamp = null;
@@ -561,11 +575,12 @@ function render(){
     const benchGrid = document.getElementById('benchGrid');
     benchGrid.innerHTML='';
     bench.forEach(p => {
-      const isNext = true;
+      const isFair = (fairShareSeconds-p.seconds) < FAIRNESS_TOLERANCE_SEC;
       const div = document.createElement('div');
-      div.className = 'pcard bench' + (selected===p.id?' selected':'') + (isNext?' nextup':'');
+      div.className = 'pcard bench' + (selected===p.id?' selected':'') + (isFair?' faircard':' nextup');
       div.onclick = () => clickPlayer(p.id);
-      div.innerHTML = (isNext?'<div class="badge">Next up</div>':'') + '<div class="pname">'+escapeHtml(p.name)+'</div><div class="ptime">'+fmt(p.seconds)+'</div>';
+      const badgeHtml = isFair ? '<div class="badge fair">Fair time</div>' : '<div class="badge">Next up</div>';
+      div.innerHTML = badgeHtml + '<div class="pname">'+escapeHtml(p.name)+'</div><div class="ptime">'+fmt(p.seconds)+'</div>';
       benchGrid.appendChild(div);
     });
   }
