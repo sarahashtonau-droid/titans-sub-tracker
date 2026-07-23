@@ -558,11 +558,10 @@ function render(){
   } else {
     benchSection.style.display='block';
     hintText.textContent = "Tap a bench player, then tap a court player to sub them in. When it buzzes, the red-outlined player is due off — the bench player highlighted green is due on.";
-    const minBenchSeconds = Math.min(...bench.map(p=>p.seconds));
     const benchGrid = document.getElementById('benchGrid');
     benchGrid.innerHTML='';
     bench.forEach(p => {
-      const isNext = p.seconds===minBenchSeconds;
+      const isNext = true;
       const div = document.createElement('div');
       div.className = 'pcard bench' + (selected===p.id?' selected':'') + (isNext?' nextup':'');
       div.onclick = () => clickPlayer(p.id);
