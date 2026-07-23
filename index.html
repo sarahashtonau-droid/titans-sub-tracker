@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Titans — Sub Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#12161d;
+    --surface:#1b212b;
+    --surface-2:#232a35;
+    --line:#2c3542;
+    --court:#e8a33d;
+    --court-dim:#3a2f1c;
+    --bench:#4a5568;
+    --bench-dim:#232a35;
+    --text:#f2efe8;
+    --text-dim:#8b93a3;
+    --next:#2bb673;
+    --next-dim:#12261d;
+    --danger:#d85a4a;
+    --off:#3a3f47;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    padding-bottom:2rem;
+  }
+  .wrap{max-width:520px;margin:0 auto;padding:1rem 1rem 0;}
+  h1,.disp{font-family:'Oswald',sans-serif;font-weight:600;letter-spacing:0.02em;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:1rem 0 0.5rem;}
+  .topbar h1{font-size:20px;margin:0;color:var(--court);text-transform:uppercase;}
+  .icon-btn{
+    background:var(--surface);border:1px solid var(--line);color:var(--text-dim);
+    width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+    cursor:pointer;font-size:16px;
+  }
+  .icon-btn:active{transform:scale(0.94);}
+  .clockcard{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:1.25rem 1rem;margin:0.5rem 0 1rem;text-align:center;}
+  .half-label{font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:4px;}
+  .clock{font-family:'Oswald',sans-serif;font-weight:700;font-size:56px;font-variant-numeric:tabular-nums;line-height:1;letter-spacing:0.02em;}
+  .clock.warn{color:var(--danger);}
+  .controls{display:flex;gap:10px;margin-top:1rem;justify-content:center;}
+  button.ctrl{font-family:'Inter',sans-serif;font-weight:600;font-size:15px;border-radius:10px;border:1px solid var(--line);padding:0.7rem 1.4rem;cursor:pointer;background:var(--surface-2);color:var(--text);}
+  button.ctrl.primary{background:var(--court);border-color:var(--court);color:#2b1c05;}
+  button.ctrl:active{transform:scale(0.97);}
+  .section-label{font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.12em;margin:1.2rem 0 0.5rem;display:flex;align-items:center;gap:8px;}
+  .swatch{width:9px;height:9px;border-radius:3px;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .pcard{border-radius:12px;padding:0.8rem 0.9rem;cursor:pointer;border:2px solid transparent;position:relative;user-select:none;transition:transform 0.08s;}
+  .pcard:active{transform:scale(0.97);}
+  .pcard.court{background:var(--court-dim);}
+  .pcard.bench{background:var(--bench-dim);}
+  .pcard.selected{border-color:var(--court);}
+  .pcard.nextup{outline:2px solid var(--next);outline-offset:-2px;}
+  .pname{font-weight:600;font-size:15px;margin-bottom:2px;}
+  .ptime{font-family:'Oswald',sans-serif;font-size:22px;font-variant-numeric:tabular-nums;color:var(--text-dim);}
+  .pcard.court .ptime{color:#f5cf94;}
+  .badge{position:absolute;top:8px;right:8px;font-size:10px;font-weight:600;background:var(--next);color:#08281a;padding:2px 6px;border-radius:6px;text-transform:uppercase;}
+  .hint{font-size:13px;color:var(--text-dim);margin-top:1rem;line-height:1.5;text-align:center;}
+  .summary{margin-top:1.2rem;}
+  .srow{display:flex;justify-content:space-between;align-items:center;padding:8px 4px;border-bottom:1px solid var(--line);font-size:14px;}
+  .srow:last-child{border-bottom:none;}
+  .sname{font-weight:500;}
+  .stime{font-family:'Oswald',sans-serif;font-variant-numeric:tabular-nums;color:var(--text-dim);font-size:15px;}
+  .setup{padding:1rem 0;}
+  .setup h1{font-size:22px;color:var(--court);text-transform:uppercase;margin-bottom:0.25rem;}
+  .setup p{color:var(--text-dim);font-size:14px;margin-top:0;margin-bottom:1.2rem;}
+  .rosterrow{display:flex;align-items:center;gap:12px;padding:0.7rem 0.2rem;border-bottom:1px solid var(--line);}
+  .rosterrow:last-child{border-bottom:none;}
+  .chk{
+    width:24px;height:24px;border-radius:7px;border:2px solid var(--line);background:var(--surface-2);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;font-size:15px;color:transparent;
+  }
+  .chk.checked{background:var(--court);border-color:var(--court);color:#2b1c05;}
+  .setup input.nameedit{
+    flex:1;background:transparent;border:none;color:var(--text);font-size:16px;font-family:'Inter',sans-serif;font-weight:500;
+    padding:6px 4px;border-radius:6px;
+  }
+  .setup input.nameedit:focus{outline:none;background:var(--surface-2);}
+  .rosterrow.off .nameedit{color:var(--text-dim);}
+  .countline{font-size:13px;color:var(--text-dim);margin:0.8rem 0 0.2rem;}
+  .startbtn{width:100%;margin-top:1rem;background:var(--court);color:#2b1c05;border:none;border-radius:10px;padding:0.9rem;font-family:'Inter',sans-serif;font-weight:600;font-size:16px;cursor:pointer;}
+  .startbtn:disabled{background:var(--off);color:var(--text-dim);cursor:not-allowed;}
+  .overlay{position:absolute;inset:0;background:rgba(18,22,29,0.92);display:flex;align-items:center;justify-content:center;border-radius:16px;flex-direction:column;gap:0.5rem;}
+  .oversub{font-size:13px;color:var(--text-dim);}
+  .courtwrap{position:relative;}
+  .allplaying{text-align:center;color:var(--text-dim);font-size:14px;padding:1rem 0;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="setupScreen" class="setup" style="display:none;">
+    <h1>Titans — this week</h1>
+    <p>Tick who's playing today. Tap a name to fix a spelling if needed.</p>
+    <div id="rosterList"></div>
+    <div class="countline" id="countLine"></div>
+    <button class="startbtn" id="startBtn" onclick="startFromSetup()">Start game</button>
+  </div>
+
+  <div id="gameScreen" style="display:none;">
+    <div class="topbar">
+      <h1>Titans</h1>
+      <div style="display:flex;gap:8px;">
+        <button class="icon-btn" onclick="openSetup()" title="This week's players">✎</button>
+        <button class="icon-btn" onclick="newGame()" title="New game">↺</button>
+      </div>
+    </div>
+
+    <div class="clockcard courtwrap">
+      <div class="half-label" id="halfLabel">Half 1</div>
+      <div class="clock" id="clockDisplay">20:00</div>
+      <div class="controls">
+        <button class="ctrl primary" id="startPauseBtn" onclick="toggleRun()">Start</button>
+        <button class="ctrl" onclick="resetClockOnly()">Reset clock</button>
+      </div>
+      <div id="overlayHolder"></div>
+    </div>
+
+    <div class="section-label"><span class="swatch" style="background:var(--court);"></span>On court</div>
+    <div class="grid" id="courtGrid"></div>
+
+    <div id="benchSection">
+      <div class="section-label"><span class="swatch" style="background:var(--bench);"></span>Bench</div>
+      <div class="grid" id="benchGrid"></div>
+    </div>
+
+    <div class="hint" id="hintText">Tap a bench player, then tap a court player to sub them in. Green outline shows who's had the least time.</div>
+
+    <div class="section-label">Playing time this game</div>
+    <div class="summary" id="summaryList"></div>
+  </div>
+
+</div>
+
+<script>
+const HALF_LEN = 20*60;
+const GAME_LEN = 40*60;
+const NAMES_KEY = 'titans-roster-names';
+const PLAYING_KEY = 'titans-weekly-playing';
+const DEFAULT_NAMES = ['Sammy','Leon','Sam','Ethan','Theo','Sunni','Minty'];
+
+let roster = [];
+let players = [];
+let elapsed = 0;
+let running = false;
+let half = 1;
+let timerHandle = null;
+let selected = null;
+let gameOver = false;
+
+function fmt(sec){
+  sec = Math.max(0, Math.round(sec));
+  const m = Math.floor(sec/60), s = sec%60;
+  return m + ':' + String(s).padStart(2,'0');
+}
+
+async function loadRoster(){
+  let names = DEFAULT_NAMES.slice();
+  let playing = DEFAULT_NAMES.map(()=>true);
+  try{
+    const res = await window.storage.get(NAMES_KEY, false);
+    if(res && res.value){
+      const parsed = JSON.parse(res.value);
+      if(Array.isArray(parsed) && parsed.length === 7) names = parsed;
+    }
+  }catch(e){}
+  try{
+    const res2 = await window.storage.get(PLAYING_KEY, false);
+    if(res2 && res2.value){
+      const parsed2 = JSON.parse(res2.value);
+      if(Array.isArray(parsed2) && parsed2.length === 7) playing = parsed2;
+    }
+  }catch(e){}
+  return names.map((name,i) => ({name, playing: playing[i]}));
+}
+
+async function saveRoster(){
+  try{
+    await window.storage.set(NAMES_KEY, JSON.stringify(roster.map(r=>r.name)), false);
+    await window.storage.set(PLAYING_KEY, JSON.stringify(roster.map(r=>r.playing)), false);
+  }catch(e){}
+}
+
+async function init(){
+  roster = await loadRoster();
+  openSetup();
+}
+
+function openSetup(){
+  stopTimer();
+  document.getElementById('gameScreen').style.display='none';
+  const list = document.getElementById('rosterList');
+  list.innerHTML = '';
+  roster.forEach((r,i) => {
+    const row = document.createElement('div');
+    row.className = 'rosterrow' + (r.playing ? '' : ' off');
+    row.innerHTML =
+      '<div class="chk'+(r.playing?' checked':'')+'" data-i="'+i+'">'+(r.playing?'✓':'')+'</div>'+
+      '<input class="nameedit" data-i="'+i+'" value="'+r.name.replace(/"/g,'&quot;')+'">';
+    list.appendChild(row);
+  });
+  list.querySelectorAll('.chk').forEach(el => {
+    el.onclick = () => {
+      const i = +el.dataset.i;
+      roster[i].playing = !roster[i].playing;
+      openSetup();
+    };
+  });
+  list.querySelectorAll('.nameedit').forEach(el => {
+    el.oninput = () => { roster[+el.dataset.i].name = el.value; };
+  });
+  updateCountLine();
+  document.getElementById('setupScreen').style.display='block';
+}
+
+function updateCountLine(){
+  const n = roster.filter(r=>r.playing).length;
+  const courtN = Math.min(5, n);
+  const benchN = Math.max(0, n - 5);
+  const line = document.getElementById('countLine');
+  const btn = document.getElementById('startBtn');
+  if(n===0){
+    line.textContent = 'Tick at least one player to start.';
+    btn.disabled = true;
+  } else if(n < 5){
+    line.textContent = n + ' playing today — all ' + n + ' on court, no bench this week.';
+    btn.disabled = false;
+  } else {
+    line.textContent = n + ' playing today — 5 on court, ' + benchN + ' on bench, rotating.';
+    btn.disabled = false;
+  }
+}
+
+async function startFromSetup(){
+  roster.forEach((r,i) => {
+    const el = document.querySelector('.nameedit[data-i="'+i+'"]');
+    if(el){ const v = el.value.trim(); r.name = v || r.name; }
+  });
+  await saveRoster();
+  const active = roster.filter(r=>r.playing);
+  const courtN = Math.min(5, active.length);
+  players = active.map((r,i) => ({
+    id:i,
+    name:r.name,
+    seconds:0,
+    onCourt: i<courtN
+  }));
+  elapsed = 0;
+  running = false;
+  half = 1;
+  gameOver = false;
+  selected = null;
+  document.getElementById('setupScreen').style.display='none';
+  document.getElementById('gameScreen').style.display='block';
+  render();
+}
+
+function newGame(){
+  const active = roster.filter(r=>r.playing);
+  const courtN = Math.min(5, active.length);
+  stopTimer();
+  running = false;
+  elapsed = 0;
+  half = 1;
+  gameOver = false;
+  players.forEach((p,i) => { p.seconds = 0; p.onCourt = i<courtN; });
+  selected = null;
+  render();
+}
+
+function resetClockOnly(){
+  stopTimer();
+  running = false;
+  elapsed = 0;
+  half = 1;
+  gameOver = false;
+  render();
+}
+
+function toggleRun(){
+  if(gameOver) return;
+  running = !running;
+  if(running) startTimer(); else stopTimer();
+  render();
+}
+
+function startTimer(){
+  stopTimer();
+  timerHandle = setInterval(tick, 1000);
+}
+function stopTimer(){
+  if(timerHandle){ clearInterval(timerHandle); timerHandle = null; }
+}
+
+function tick(){
+  elapsed++;
+  players.forEach(p => { if(p.onCourt) p.seconds++; });
+
+  if(half===1 && elapsed>=HALF_LEN){
+    running = false;
+    stopTimer();
+    half = 2;
+    render();
+    return;
+  }
+  if(elapsed>=GAME_LEN){
+    running = false;
+    stopTimer();
+    gameOver = true;
+    render();
+    return;
+  }
+  render();
+}
+
+function clickPlayer(id){
+  if(players.length <= 5) return;
+  if(selected===null){
+    selected = id;
+  } else if(selected===id){
+    selected = null;
+  } else {
+    const a = players.find(p=>p.id===selected);
+    const b = players.find(p=>p.id===id);
+    if(a.onCourt !== b.onCourt){
+      a.onCourt = !a.onCourt;
+      b.onCourt = !b.onCourt;
+      selected = null;
+    } else {
+      selected = id;
+    }
+  }
+  render();
+}
+
+function render(){
+  const remaining = half===1 ? HALF_LEN-elapsed : GAME_LEN-elapsed;
+  document.getElementById('clockDisplay').textContent = fmt(Math.max(0,remaining));
+  document.getElementById('clockDisplay').className = 'clock' + (remaining<=60 ? ' warn' : '');
+  document.getElementById('halfLabel').textContent = gameOver ? 'Full time' : (half===1 ? (elapsed>=HALF_LEN? 'Half time' : 'Half 1') : 'Half 2');
+  document.getElementById('startPauseBtn').textContent = running ? 'Pause' : (elapsed===0 ? 'Start' : 'Resume');
+
+  const overlayHolder = document.getElementById('overlayHolder');
+  if(half===1 && elapsed>=HALF_LEN && !gameOver && !running){
+    overlayHolder.innerHTML = '<div class="overlay"><div class="disp" style="font-size:22px;color:var(--court);">Half time</div><div class="oversub">Tap resume to start half 2</div></div>';
+  } else if(gameOver){
+    overlayHolder.innerHTML = '<div class="overlay"><div class="disp" style="font-size:22px;color:var(--court);">Full time</div><div class="oversub">Tap ↺ to start a new game</div></div>';
+  } else {
+    overlayHolder.innerHTML = '';
+  }
+
+  const onCourt = players.filter(p=>p.onCourt);
+  const bench = players.filter(p=>!p.onCourt);
+
+  const courtGrid = document.getElementById('courtGrid');
+  courtGrid.innerHTML='';
+  onCourt.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'pcard court' + (selected===p.id?' selected':'');
+    div.onclick = () => clickPlayer(p.id);
+    div.innerHTML = '<div class="pname">'+escapeHtml(p.name)+'</div><div class="ptime">'+fmt(p.seconds)+'</div>';
+    courtGrid.appendChild(div);
+  });
+
+  const benchSection = document.getElementById('benchSection');
+  const hintText = document.getElementById('hintText');
+  if(bench.length===0){
+    benchSection.style.display='none';
+    hintText.textContent = 'Everyone who ticked in today is on court the whole game — no bench to manage.';
+  } else {
+    benchSection.style.display='block';
+    hintText.textContent = "Tap a bench player, then tap a court player to sub them in. Green outline shows who's had the least time.";
+    const minBenchSeconds = Math.min(...bench.map(p=>p.seconds));
+    const benchGrid = document.getElementById('benchGrid');
+    benchGrid.innerHTML='';
+    bench.forEach(p => {
+      const isNext = p.seconds===minBenchSeconds;
+      const div = document.createElement('div');
+      div.className = 'pcard bench' + (selected===p.id?' selected':'') + (isNext?' nextup':'');
+      div.onclick = () => clickPlayer(p.id);
+      div.innerHTML = (isNext?'<div class="badge">Next up</div>':'') + '<div class="pname">'+escapeHtml(p.name)+'</div><div class="ptime">'+fmt(p.seconds)+'</div>';
+      benchGrid.appendChild(div);
+    });
+  }
+
+  const sorted = [...players].sort((a,b)=>b.seconds-a.seconds);
+  const summary = document.getElementById('summaryList');
+  summary.innerHTML='';
+  sorted.forEach(p => {
+    const row = document.createElement('div');
+    row.className='srow';
+    row.innerHTML = '<span class="sname">'+escapeHtml(p.name)+'</span><span class="stime">'+fmt(p.seconds)+'</span>';
+    summary.appendChild(row);
+  });
+}
+
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+init();
+</script>
+</body>
+</html>
