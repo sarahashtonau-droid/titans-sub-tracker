@@ -161,8 +161,8 @@
 </div>
 
 <script>
-const HALF_LEN = 20*60;
-const GAME_LEN = 40*60;
+const HALF_LEN = 8*60;
+const GAME_LEN = HALF_LEN*2;
 const NAMES_KEY = 'titans-roster-names';
 const PLAYING_KEY = 'titans-weekly-playing';
 const DEFAULT_NAMES = ['Sammy','Leon','Sam','Ethan','Theo','Sunni','Minty'];
@@ -178,6 +178,7 @@ let gameOver = false;
 let shiftSeconds = 0;
 let lastShiftIndex = 0;
 let subDue = false;
+let dueSwapsRemaining = 0;
 let audioCtx = null;
 let startTimestamp = null;
 let wakeLock = null;
@@ -240,6 +241,7 @@ function doVibrate(){
 
 function triggerSubAlert(){
   subDue = true;
+  dueSwapsRemaining = players.filter(p=>!p.onCourt).length;
   playBuzzer();
   doVibrate();
   render();
@@ -247,6 +249,7 @@ function triggerSubAlert(){
 
 function dismissSubAlert(){
   subDue = false;
+  dueSwapsRemaining = 0;
   render();
 }
 
@@ -468,7 +471,10 @@ function clickPlayer(id){
       a.onCourt = !a.onCourt;
       b.onCourt = !b.onCourt;
       selected = null;
-      subDue = false;
+      if(subDue){
+        dueSwapsRemaining = Math.max(0, dueSwapsRemaining-1);
+        if(dueSwapsRemaining<=0) subDue = false;
+      }
     } else {
       selected = id;
     }
@@ -485,7 +491,8 @@ function render(){
 
   const bannerHolder = document.getElementById('subBannerHolder');
   if(subDue && !gameOver){
-    bannerHolder.innerHTML = '<div class="subbanner" onclick="dismissSubAlert()">🔄 Time to substitute<small>Tap to dismiss</small></div>';
+    const subText = dueSwapsRemaining>1 ? ('🔄 Time to substitute — ' + dueSwapsRemaining + ' subs needed') : '🔄 Time to substitute';
+    bannerHolder.innerHTML = '<div class="subbanner" onclick="dismissSubAlert()">'+subText+'<small>Tap to dismiss</small></div>';
   } else {
     bannerHolder.innerHTML = '';
   }
@@ -512,8 +519,8 @@ function render(){
   const bench = players.filter(p=>!p.onCourt);
   const benchCount = bench.length;
   let dueIds = [];
-  if(subDue && benchCount>0){
-    dueIds = [...onCourt].sort((a,b)=>b.seconds-a.seconds).slice(0,benchCount).map(p=>p.id);
+  if(subDue && dueSwapsRemaining>0){
+    dueIds = [...onCourt].sort((a,b)=>b.seconds-a.seconds).slice(0,dueSwapsRemaining).map(p=>p.id);
   }
 
   const courtGrid = document.getElementById('courtGrid');
