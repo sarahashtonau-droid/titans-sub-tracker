@@ -115,7 +115,7 @@
 <div class="wrap">
 
   <div id="setupScreen" class="setup" style="display:none;">
-    <h1>Titans — this week</h1>
+    <h1 style="display:flex;align-items:center;gap:10px;"><img src="icon.png" alt="" style="width:32px;height:32px;border-radius:8px;">Titans — this week</h1>
     <p>Tick who's playing today. Tap a name to fix a spelling if needed.</p>
     <div id="rosterList"></div>
     <div class="countline" id="countLine"></div>
@@ -179,6 +179,8 @@ let shiftSeconds = 0;
 let lastShiftIndex = 0;
 let subDue = false;
 let audioCtx = null;
+let startTimestamp = null;
+let wakeLock = null;
 
 function fmt(sec){
   sec = Math.max(0, Math.round(sec));
@@ -199,6 +201,18 @@ function ensureAudio(){
     if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
     if(audioCtx.state==='suspended') audioCtx.resume();
   }catch(e){}
+}
+
+async function requestWakeLock(){
+  try{
+    if('wakeLock' in navigator){
+      wakeLock = await navigator.wakeLock.request('screen');
+    }
+  }catch(e){ wakeLock = null; }
+}
+
+function releaseWakeLock(){
+  try{ if(wakeLock){ wakeLock.release(); wakeLock = null; } }catch(e){}
 }
 
 function playBuzzer(){
@@ -336,6 +350,7 @@ async function startFromSetup(){
   shiftSeconds = computeShiftSeconds(players.length);
   lastShiftIndex = 0;
   subDue = false;
+  startTimestamp = null;
   document.getElementById('setupScreen').style.display='none';
   document.getElementById('gameScreen').style.display='block';
   render();
@@ -345,6 +360,7 @@ function newGame(){
   const active = roster.filter(r=>r.playing);
   const courtN = Math.min(5, active.length);
   stopTimer();
+  releaseWakeLock();
   running = false;
   elapsed = 0;
   half = 1;
@@ -354,22 +370,33 @@ function newGame(){
   shiftSeconds = computeShiftSeconds(players.length);
   lastShiftIndex = 0;
   subDue = false;
+  startTimestamp = null;
   render();
 }
 
 function resetClockOnly(){
   stopTimer();
+  releaseWakeLock();
   running = false;
   elapsed = 0;
   half = 1;
   gameOver = false;
+  startTimestamp = null;
   render();
 }
 
 function toggleRun(){
   if(gameOver) return;
   running = !running;
-  if(running){ ensureAudio(); startTimer(); } else stopTimer();
+  if(running){
+    ensureAudio();
+    startTimestamp = Date.now() - elapsed*1000;
+    requestWakeLock();
+    startTimer();
+  } else {
+    releaseWakeLock();
+    stopTimer();
+  }
   render();
 }
 
@@ -382,12 +409,21 @@ function stopTimer(){
 }
 
 function tick(){
-  elapsed++;
-  players.forEach(p => { if(p.onCourt) p.seconds++; });
+  if(!running || startTimestamp===null) return;
+  const cap = half===1 ? HALF_LEN : GAME_LEN;
+  let newElapsed = Math.floor((Date.now()-startTimestamp)/1000);
+  if(newElapsed > cap) newElapsed = cap;
+  const delta = newElapsed - elapsed;
+  if(delta<=0) return;
+
+  players.forEach(p => { if(p.onCourt) p.seconds += delta; });
+  elapsed = newElapsed;
 
   if(half===1 && elapsed>=HALF_LEN){
     running = false;
     stopTimer();
+    releaseWakeLock();
+    startTimestamp = null;
     half = 2;
     render();
     return;
@@ -395,6 +431,8 @@ function tick(){
   if(elapsed>=GAME_LEN){
     running = false;
     stopTimer();
+    releaseWakeLock();
+    startTimestamp = null;
     gameOver = true;
     render();
     return;
@@ -409,6 +447,13 @@ function tick(){
   }
   render();
 }
+
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState==='visible' && running){
+    tick();
+    requestWakeLock();
+  }
+});
 
 function clickPlayer(id){
   if(players.length <= 5) return;
