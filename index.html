@@ -183,6 +183,15 @@ let audioCtx = null;
 let startTimestamp = null;
 let wakeLock = null;
 
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
 function fmt(sec){
   sec = Math.max(0, Math.round(sec));
   const m = Math.floor(sec/60), s = sec%60;
@@ -220,6 +229,13 @@ function playBuzzer(){
   try{
     ensureAudio();
     if(!audioCtx) return;
+    const compressor = audioCtx.createDynamicsCompressor();
+    compressor.threshold.value = -12;
+    compressor.knee.value = 6;
+    compressor.ratio.value = 12;
+    compressor.attack.value = 0.002;
+    compressor.release.value = 0.1;
+    compressor.connect(audioCtx.destination);
     const now = audioCtx.currentTime;
     [0,0.32,0.64].forEach(t=>{
       const osc = audioCtx.createOscillator();
@@ -227,10 +243,10 @@ function playBuzzer(){
       osc.type='square';
       osc.frequency.value=740;
       gain.gain.setValueAtTime(0.0001, now+t);
-      gain.gain.exponentialRampToValueAtTime(0.25, now+t+0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now+t+0.26);
-      osc.connect(gain); gain.connect(audioCtx.destination);
-      osc.start(now+t); osc.stop(now+t+0.28);
+      gain.gain.exponentialRampToValueAtTime(1.0, now+t+0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now+t+0.28);
+      osc.connect(gain); gain.connect(compressor);
+      osc.start(now+t); osc.stop(now+t+0.3);
     });
   }catch(e){}
 }
@@ -337,7 +353,7 @@ async function startFromSetup(){
     if(el){ const v = el.value.trim(); r.name = v || r.name; }
   });
   await saveRoster();
-  const active = roster.filter(r=>r.playing);
+  const active = shuffle(roster.filter(r=>r.playing));
   const courtN = Math.min(5, active.length);
   players = active.map((r,i) => ({
     id:i,
@@ -360,15 +376,15 @@ async function startFromSetup(){
 }
 
 function newGame(){
-  const active = roster.filter(r=>r.playing);
-  const courtN = Math.min(5, active.length);
+  const activeIds = shuffle(players.map(p=>p.id));
+  const courtIds = new Set(activeIds.slice(0, Math.min(5, players.length)));
   stopTimer();
   releaseWakeLock();
   running = false;
   elapsed = 0;
   half = 1;
   gameOver = false;
-  players.forEach((p,i) => { p.seconds = 0; p.onCourt = i<courtN; });
+  players.forEach(p => { p.seconds = 0; p.onCourt = courtIds.has(p.id); });
   selected = null;
   shiftSeconds = computeShiftSeconds(players.length);
   lastShiftIndex = 0;
