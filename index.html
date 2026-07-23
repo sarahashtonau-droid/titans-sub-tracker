@@ -97,6 +97,18 @@
   .oversub{font-size:13px;color:var(--text-dim);}
   .courtwrap{position:relative;}
   .allplaying{text-align:center;color:var(--text-dim);font-size:14px;padding:1rem 0;}
+  .nextsub{font-size:13px;color:var(--text-dim);margin-top:6px;}
+  .pcard.due{outline:2px solid var(--danger);outline-offset:-2px;}
+  .duebadge{position:absolute;top:8px;left:8px;font-size:10px;font-weight:600;background:var(--danger);color:#2a0d08;padding:2px 6px;border-radius:6px;text-transform:uppercase;}
+  @keyframes pulseglow{
+    0%,100%{box-shadow:0 0 0 0 rgba(216,90,74,0.6);}
+    50%{box-shadow:0 0 0 10px rgba(216,90,74,0);}
+  }
+  .subbanner{
+    background:var(--danger);color:#2a0d08;border-radius:12px;padding:0.8rem 1rem;margin-bottom:0.8rem;
+    font-weight:600;font-size:15px;text-align:center;cursor:pointer;animation:pulseglow 1.4s infinite;
+  }
+  .subbanner small{display:block;font-weight:500;font-size:12px;margin-top:2px;opacity:0.85;}
 </style>
 </head>
 <body>
@@ -119,6 +131,8 @@
       </div>
     </div>
 
+    <div id="subBannerHolder"></div>
+
     <div class="clockcard courtwrap">
       <div class="half-label" id="halfLabel">Half 1</div>
       <div class="clock" id="clockDisplay">20:00</div>
@@ -126,6 +140,7 @@
         <button class="ctrl primary" id="startPauseBtn" onclick="toggleRun()">Start</button>
         <button class="ctrl" onclick="resetClockOnly()">Reset clock</button>
       </div>
+      <div id="nextSubLine" class="nextsub"></div>
       <div id="overlayHolder"></div>
     </div>
 
@@ -160,11 +175,65 @@ let half = 1;
 let timerHandle = null;
 let selected = null;
 let gameOver = false;
+let shiftSeconds = 0;
+let lastShiftIndex = 0;
+let subDue = false;
+let audioCtx = null;
 
 function fmt(sec){
   sec = Math.max(0, Math.round(sec));
   const m = Math.floor(sec/60), s = sec%60;
   return m + ':' + String(s).padStart(2,'0');
+}
+
+function computeShiftSeconds(n){
+  // Even rotation: every GAME_LEN/n seconds, the bench-count of longest-playing
+  // court players swap with the bench-count of longest-resting bench players.
+  const bench = Math.max(0, n-5);
+  if(bench===0 || n===0) return 0;
+  return GAME_LEN / n;
+}
+
+function ensureAudio(){
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==='suspended') audioCtx.resume();
+  }catch(e){}
+}
+
+function playBuzzer(){
+  try{
+    ensureAudio();
+    if(!audioCtx) return;
+    const now = audioCtx.currentTime;
+    [0,0.32,0.64].forEach(t=>{
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type='square';
+      osc.frequency.value=740;
+      gain.gain.setValueAtTime(0.0001, now+t);
+      gain.gain.exponentialRampToValueAtTime(0.25, now+t+0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now+t+0.26);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(now+t); osc.stop(now+t+0.28);
+    });
+  }catch(e){}
+}
+
+function doVibrate(){
+  try{ if(navigator.vibrate) navigator.vibrate([300,120,300,120,300]); }catch(e){}
+}
+
+function triggerSubAlert(){
+  subDue = true;
+  playBuzzer();
+  doVibrate();
+  render();
+}
+
+function dismissSubAlert(){
+  subDue = false;
+  render();
 }
 
 async function loadRoster(){
@@ -239,7 +308,8 @@ function updateCountLine(){
     line.textContent = n + ' playing today — all ' + n + ' on court, no bench this week.';
     btn.disabled = false;
   } else {
-    line.textContent = n + ' playing today — 5 on court, ' + benchN + ' on bench, rotating.';
+    const shift = computeShiftSeconds(n);
+    line.textContent = n + ' playing today — 5 on court, ' + benchN + ' on bench. Sub alert every ' + fmt(shift) + '.';
     btn.disabled = false;
   }
 }
@@ -263,6 +333,9 @@ async function startFromSetup(){
   half = 1;
   gameOver = false;
   selected = null;
+  shiftSeconds = computeShiftSeconds(players.length);
+  lastShiftIndex = 0;
+  subDue = false;
   document.getElementById('setupScreen').style.display='none';
   document.getElementById('gameScreen').style.display='block';
   render();
@@ -278,6 +351,9 @@ function newGame(){
   gameOver = false;
   players.forEach((p,i) => { p.seconds = 0; p.onCourt = i<courtN; });
   selected = null;
+  shiftSeconds = computeShiftSeconds(players.length);
+  lastShiftIndex = 0;
+  subDue = false;
   render();
 }
 
@@ -293,7 +369,7 @@ function resetClockOnly(){
 function toggleRun(){
   if(gameOver) return;
   running = !running;
-  if(running) startTimer(); else stopTimer();
+  if(running){ ensureAudio(); startTimer(); } else stopTimer();
   render();
 }
 
@@ -323,6 +399,14 @@ function tick(){
     render();
     return;
   }
+  if(shiftSeconds>0){
+    const idx = Math.floor(elapsed/shiftSeconds);
+    if(idx>lastShiftIndex){
+      lastShiftIndex = idx;
+      triggerSubAlert();
+      return;
+    }
+  }
   render();
 }
 
@@ -339,6 +423,7 @@ function clickPlayer(id){
       a.onCourt = !a.onCourt;
       b.onCourt = !b.onCourt;
       selected = null;
+      subDue = false;
     } else {
       selected = id;
     }
@@ -353,6 +438,22 @@ function render(){
   document.getElementById('halfLabel').textContent = gameOver ? 'Full time' : (half===1 ? (elapsed>=HALF_LEN? 'Half time' : 'Half 1') : 'Half 2');
   document.getElementById('startPauseBtn').textContent = running ? 'Pause' : (elapsed===0 ? 'Start' : 'Resume');
 
+  const bannerHolder = document.getElementById('subBannerHolder');
+  if(subDue && !gameOver){
+    bannerHolder.innerHTML = '<div class="subbanner" onclick="dismissSubAlert()">🔄 Time to substitute<small>Tap to dismiss</small></div>';
+  } else {
+    bannerHolder.innerHTML = '';
+  }
+
+  const nextSubLine = document.getElementById('nextSubLine');
+  if(shiftSeconds>0 && !gameOver){
+    const nextBoundary = (lastShiftIndex+1)*shiftSeconds;
+    const untilNext = Math.max(0, nextBoundary-elapsed);
+    nextSubLine.textContent = subDue ? 'Sub due now' : ('Next sub in ' + fmt(untilNext));
+  } else {
+    nextSubLine.textContent = '';
+  }
+
   const overlayHolder = document.getElementById('overlayHolder');
   if(half===1 && elapsed>=HALF_LEN && !gameOver && !running){
     overlayHolder.innerHTML = '<div class="overlay"><div class="disp" style="font-size:22px;color:var(--court);">Half time</div><div class="oversub">Tap resume to start half 2</div></div>';
@@ -364,14 +465,20 @@ function render(){
 
   const onCourt = players.filter(p=>p.onCourt);
   const bench = players.filter(p=>!p.onCourt);
+  const benchCount = bench.length;
+  let dueIds = [];
+  if(subDue && benchCount>0){
+    dueIds = [...onCourt].sort((a,b)=>b.seconds-a.seconds).slice(0,benchCount).map(p=>p.id);
+  }
 
   const courtGrid = document.getElementById('courtGrid');
   courtGrid.innerHTML='';
   onCourt.forEach(p => {
+    const isDue = dueIds.includes(p.id);
     const div = document.createElement('div');
-    div.className = 'pcard court' + (selected===p.id?' selected':'');
+    div.className = 'pcard court' + (selected===p.id?' selected':'') + (isDue?' due':'');
     div.onclick = () => clickPlayer(p.id);
-    div.innerHTML = '<div class="pname">'+escapeHtml(p.name)+'</div><div class="ptime">'+fmt(p.seconds)+'</div>';
+    div.innerHTML = (isDue?'<div class="duebadge">Due off</div>':'') + '<div class="pname">'+escapeHtml(p.name)+'</div><div class="ptime">'+fmt(p.seconds)+'</div>';
     courtGrid.appendChild(div);
   });
 
@@ -382,7 +489,7 @@ function render(){
     hintText.textContent = 'Everyone who ticked in today is on court the whole game — no bench to manage.';
   } else {
     benchSection.style.display='block';
-    hintText.textContent = "Tap a bench player, then tap a court player to sub them in. Green outline shows who's had the least time.";
+    hintText.textContent = "Tap a bench player, then tap a court player to sub them in. When it buzzes, the red-outlined player is due off — the bench player highlighted green is due on.";
     const minBenchSeconds = Math.min(...bench.map(p=>p.seconds));
     const benchGrid = document.getElementById('benchGrid');
     benchGrid.innerHTML='';
